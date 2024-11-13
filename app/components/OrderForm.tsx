@@ -1,8 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Package, RotateCcw, Trash2 } from 'lucide-react';
-import OrderConfirmationDialog from './OrderConfirmationDialog';
+import React, { useState } from 'react';
+import { Package } from 'lucide-react';
 
 type OrderFormProps = {
     cartItems: {[key: string]: number};
@@ -13,8 +12,6 @@ type OrderFormProps = {
         inStock: boolean;
     }>;
     onRemoveFromCart: (productId: number, volume: number) => void;
-    onClearCart: () => void;
-    totalVolume: number;
 };
 
 type FormData = {
@@ -25,9 +22,7 @@ type FormData = {
     note: string;
 };
 
-const DRAFT_KEY = 'orderFormDraft';
-
-const OrderForm = ({ cartItems, products, onRemoveFromCart, onClearCart, totalVolume }: OrderFormProps) => {
+const OrderForm = ({ cartItems, products, onRemoveFromCart }: OrderFormProps) => {
     const [formData, setFormData] = useState<FormData>({
         name: '',
         email: '',
@@ -35,25 +30,17 @@ const OrderForm = ({ cartItems, products, onRemoveFromCart, onClearCart, totalVo
         company: '',
         note: ''
     });
-    const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
-    const [orderStatus, setOrderStatus] = useState<'pending' | 'processing' | 'completed' | 'error'>('pending');
-    const [hasDraft, setHasDraft] = useState(false);
 
-    // Načtení rozepsané objednávky při prvním načtení
-    useEffect(() => {
-        const savedDraft = localStorage.getItem(DRAFT_KEY);
-        if (savedDraft) {
-            setHasDraft(true);
-        }
-    }, []);
+    const getProductDetails = (productId: number) => {
+        return products.find(p => p.id === productId);
+    };
 
-    // Automatické ukládání rozepsané objednávky
-    useEffect(() => {
-        if (Object.values(formData).some(value => value !== '')) {
-            localStorage.setItem(DRAFT_KEY, JSON.stringify(formData));
-            setHasDraft(true);
-        }
-    }, [formData]);
+    const getTotalVolume = () => {
+        return Object.entries(cartItems).reduce((total, [key, count]) => {
+            const volume = parseInt(key.split('-')[1]);
+            return total + (volume * count);
+        }, 0);
+    };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -63,98 +50,18 @@ const OrderForm = ({ cartItems, products, onRemoveFromCart, onClearCart, totalVo
         }));
     };
 
-    const loadDraft = () => {
-        const savedDraft = localStorage.getItem(DRAFT_KEY);
-        if (savedDraft) {
-            setFormData(JSON.parse(savedDraft));
-        }
-    };
-
-    const clearDraft = () => {
-        localStorage.removeItem(DRAFT_KEY);
-        setHasDraft(false);
-        setFormData({
-            name: '',
-            email: '',
-            phone: '',
-            company: '',
-            note: ''
-        });
-    };
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setIsConfirmationOpen(true);
-    };
-
-    const handleConfirmOrder = async () => {
-        setOrderStatus('processing');
-        
-        try {
-            // Simulace odeslání objednávky na server
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            
-            setOrderStatus('completed');
-            clearDraft();
-            // Počkat 2 sekundy před zavřením dialogu a vyčištěním košíku
-            setTimeout(() => {
-                setIsConfirmationOpen(false);
-                onClearCart();
-            }, 2000);
-        } catch (error) {
-            setOrderStatus('error');
-        }
-    };
-
-    const getOrderSummary = () => {
-        const items = Object.entries(cartItems).map(([key, quantity]) => {
-            const [productId, volume] = key.split('-');
-            const product = products.find(p => p.id === parseInt(productId));
-            return {
-                productName: product?.name || '',
-                volume: parseInt(volume),
-                quantity
-            };
+        // Zde bude logika pro odeslání objednávky
+        console.log('Odesílání objednávky:', {
+            formData,
+            cartItems,
+            totalVolume: getTotalVolume()
         });
-
-        return {
-            items,
-            totalVolume,
-            customer: formData
-        };
-    };
-
-    const getProductDetails = (productId: number) => {
-        return products.find(p => p.id === productId);
     };
 
     return (
         <div className="max-w-4xl mx-auto p-4">
-            {/* Rozepsaná objednávka */}
-            {hasDraft && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex items-center justify-between">
-                    <div className="flex items-center">
-                        <RotateCcw className="w-5 h-5 text-blue-500 mr-2" />
-                        <span className="text-blue-700">Máte rozepsanou objednávku</span>
-                    </div>
-                    <div className="space-x-3">
-                        <button
-                            onClick={loadDraft}
-                            className="text-blue-600 hover:text-blue-700 font-medium"
-                        >
-                            Načíst
-                        </button>
-                        <button
-                            onClick={clearDraft}
-                            className="text-gray-600 hover:text-gray-700"
-                        >
-                            Zahodit
-                        </button>
-                    </div>
-                </div>
-            )}
-
-            {/* Přehled položek v košíku */}
             <div className="bg-white rounded-lg shadow p-6 mb-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-4">Přehled objednávky</h2>
                 
@@ -181,7 +88,7 @@ const OrderForm = ({ cartItems, products, onRemoveFromCart, onClearCart, totalVo
                                     className="p-1 hover:bg-gray-100 rounded-full transition-colors"
                                     title="Odebrat položku"
                                 >
-                                    <Trash2 className="w-5 h-5 text-red-500 hover:text-red-600" />
+                                    <span className="text-red-500 hover:text-red-600">×</span>
                                 </button>
                             </div>
                         );
@@ -190,12 +97,11 @@ const OrderForm = ({ cartItems, products, onRemoveFromCart, onClearCart, totalVo
 
                 <div className="text-right border-t pt-4">
                     <p className="text-lg font-bold text-gray-900">
-                        Celkový objem: {totalVolume}L
+                        Celkový objem: {getTotalVolume()}L
                     </p>
                 </div>
             </div>
 
-            {/* Formulář */}
             <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-6">Kontaktní údaje</h2>
                 
@@ -292,19 +198,6 @@ const OrderForm = ({ cartItems, products, onRemoveFromCart, onClearCart, totalVo
                     </div>
                 </div>
             </form>
-
-            <OrderConfirmationDialog
-                isOpen={isConfirmationOpen}
-                onClose={() => {
-                    if (orderStatus !== 'processing') {
-                        setIsConfirmationOpen(false);
-                        setOrderStatus('pending');
-                    }
-                }}
-                onConfirm={handleConfirmOrder}
-                orderData={getOrderSummary()}
-                orderStatus={orderStatus}
-            />
         </div>
     );
 };
